@@ -36,18 +36,27 @@ with base as (
                         on f.transaction_id = pt.id
              left join  web_db.depository dp
                         on pt.depository_id = dp.id
-        ), tenure_assignment as (
+        ), amount_assignment as (
             select *,
                    case when amount >=0 and amount <=25 then '0-25'
-                        when amount > 26 and amount <=50 then '36-50' -- this shows cumulatively how it can be bettter we may also want to do it individually
+                        when amount > 26 and amount <=50 then '26-50' -- this shows cumulatively how it can be bettter we may also want to do it individually
                         when amount > 51 and amount <=100 then '51-100'
-                        when tenure > 101 and tenure <= 200 then '101-200'
-                        when tenure > 201 and tenure <= 300 then '201-300'
-                        when tenure > 301 and tenure <= 400 then '301-400'
-                        when tenure > 401 and tenure <= 500 then '401-500'
-                        when tenure > 501 and tenure <= 1000 then '501-1000'
-                        when tenure > 1000 then '1000+' end as tenure_buckets
+                        when amount > 101 and amount <= 200 then '101-200'
+                        when amount > 201 and amount <= 300 then '201-300'
+                        when amount > 301 and amount <= 400 then '301-400'
+                        when amount > 401 and amount <= 500 then '401-500'
+                        when amount > 501 and amount <= 1000 then '501-1000'
+                        when amount > 1000 then '1000+' end as amount_buckets
                 from risk_assignment
-)
-select * from tenure_assignment
+), tenure_amount as (
+    select *,
+                   case when tenure >=0 and tenure <=30 then '0-30'
+                        when tenure > 31 and tenure <=60 then '31-60' -- this shows cumulatively how it can be bettter we may also want to do it individually
+                        when tenure > 61 and tenure <=90 then '61-90'
+                        when tenure > 91 and tenure <= 180 then '91-180'
+                        when tenure > 181 and tenure <= 365 then '181-365'
+                        when tenure > 365 then '365+' end as tenure_buckets
+           from amount_assignment
 
+)
+    select * from tenure_amount
