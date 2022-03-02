@@ -1,0 +1,53 @@
+with base as (
+    select *
+    from FEEDZAI.CHARGEBACK_TRANSACTIONS_GALILEO_20220214 ct
+             join FEEDZAI.HISTORICAL_TRANSACTION_EXTRACT_20220201 ht on ct.DEBIT_CARD_TRANSACTION_ID = ht.TRANSACTION_ID
+),join_feedzai as (
+    select f.transaction_id
+   , ht.amount
+   , ht.user_id
+   , ht.event_occurred_at
+   , b.transaction_id as label_transaction
+   , f.score
+   , case when b.transaction_id = f.transaction_id then 1 else 0 end as label
+    from FEEDZAI.feedzai_blind_test_result_20220211 f
+    left join base b on b.transaction_id = f.transaction_id
+    join FEEDZAI.HISTORICAL_TRANSACTION_EXTRACT_20220201 ht on f.transaction_id = ht.transaction_id
+    ), risk_assignment as (
+    select f.transaction_id,
+           f.amount,
+           f.user_id,
+           f.score,
+           f.label,
+           f.event_occurred_at,
+           dp.INCEPTION_DATE,
+           datediff('day',dp.inception_date,f.event_occurred_at) as tenure, -- create transaction tenure buckets
+           case when score >= 0 and score <= 100 then 0 else 1 end risk_100,
+           case when score >= 0 and score <= 200 then 0 else 1 end risk_200,
+           case when score >= 0 and score <= 300 then 0 else 1 end risk_300,
+           case when score >= 0 and score <= 400 then 0 else 1 end risk_400,
+           case when score >= 0 and score <= 500 then 0 else 1 end risk_500,
+           case when score >= 0 and score <= 600 then 0 else 1 end risk_600,
+           case when score >= 0 and score <= 700 then 0 else 1 end risk_700,
+           case when score >= 0 and score <= 800 then 0 else 1 end risk_800,
+           case when score >= 0 and score <= 900 then 0 else 1 end risk_900
+    from join_feedzai f
+             left join web_db.posted_transaction pt
+                        on f.transaction_id = pt.id
+             left join  web_db.depository dp
+                        on pt.depository_id = dp.id
+        ), tenure_assignment as (
+            select *,
+                   case when amount >=0 and amount <=25 then '0-25'
+                        when amount > 26 and amount <=50 then '36-50' -- this shows cumulatively how it can be bettter we may also want to do it individually
+                        when amount > 51 and amount <=100 then '51-100'
+                        when tenure > 101 and tenure <= 200 then '101-200'
+                        when tenure > 201 and tenure <= 300 then '201-300'
+                        when tenure > 301 and tenure <= 400 then '301-400'
+                        when tenure > 401 and tenure <= 500 then '401-500'
+                        when tenure > 501 and tenure <= 1000 then '501-1000'
+                        when tenure > 1000 then '1000+' end as tenure_buckets
+                from risk_assignment
+)
+select * from tenure_assignment
+
